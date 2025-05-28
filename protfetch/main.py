@@ -8,7 +8,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 import time
 
 from tqdm import tqdm
-
+from . import __version__
 from . import utils
 from .utils import (
     log,
