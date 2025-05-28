@@ -1,5 +1,5 @@
-import pytest # Required for running tests, even if not directly used in every test function
-from protfetch.utils import parse_gene_list_file, GeneInput # Assuming your project structure
+import pytest
+from protfetch.utils import parse_gene_list_file, GeneInput 
 
 def test_parse_gene_list_file_formats(sample_gene_list_file: Path):
     parsed_genes = parse_gene_list_file(str(sample_gene_list_file))
