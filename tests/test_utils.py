@@ -1,9 +1,10 @@
 import pytest
-from protfetch.utils import parse_gene_list_file, GeneInput 
+from pathlib import Path 
+from protfetch.utils import parse_gene_list_file, GeneInput
 
-def test_parse_gene_list_file_formats(sample_gene_list_file: Path):
+def test_parse_gene_list_file_formats(sample_gene_list_file: Path): # Path is now defined
     parsed_genes = parse_gene_list_file(str(sample_gene_list_file))
-    assert len(parsed_genes) == 3 # PRKACA, TP53, BRCA1_GENE
+    assert len(parsed_genes) == 3
     
     assert isinstance(parsed_genes[0], GeneInput)
     assert parsed_genes[0].gene_symbol == "PRKACA"
@@ -12,10 +13,10 @@ def test_parse_gene_list_file_formats(sample_gene_list_file: Path):
 
     assert isinstance(parsed_genes[1], GeneInput)
     assert parsed_genes[1].gene_symbol == "TP53"
-    assert parsed_genes[1].query_keyword == "TP53" # Defaults to gene symbol
+    assert parsed_genes[1].query_keyword == "TP53"
     assert parsed_genes[1].protein_name is None
 
     assert isinstance(parsed_genes[2], GeneInput)
-    assert parsed_genes[2].gene_symbol == "BRCA1_GENE" # From "BRCA1 | BRCA1_GENE"
-    assert parsed_genes[2].query_keyword == "BRCA1"   # The part before '|'
+    assert parsed_genes[2].gene_symbol == "BRCA1_GENE"
+    assert parsed_genes[2].query_keyword == "BRCA1"
     assert parsed_genes[2].protein_name == "BRCA1"
