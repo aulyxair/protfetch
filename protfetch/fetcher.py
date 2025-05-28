@@ -1,4 +1,3 @@
-# protfetch/fetcher.py
 import time
 from io import StringIO
 from typing import Any, Callable, List, Union
@@ -70,10 +69,10 @@ def fetch_protein_fasta_for_gene(
 
     try:
         log.debug(f"Gene '{gene_symbol}': [1/3] Fetching Gene UIDs...")
-        search_term = f"{gene_symbol}[Gene Name] AND (animals[Filter] OR human[Filter]) AND alive[Prop]"
+        search_term = f"{gene_symbol}[Gene Symbol]"
 
         handle_search = _entrez_retry_call(
-            Entrez.esearch, db="gene", term=search_term, retmax="10", retries=retries
+            Entrez.esearch, db="gene", term=search_term, retmax="20", retries=retries
         )
         if not handle_search:
             return None
@@ -84,9 +83,30 @@ def fetch_protein_fasta_for_gene(
 
         if not gene_ids:
             log.warning(
-                f"Gene '{gene_symbol}': No Gene UIDs found for symbol '{gene_symbol}'."
+                f"Gene '{gene_symbol}': No Gene UIDs found for symbol '{gene_symbol}' with term '{search_term}'."
             )
-            return None
+            log.info(
+                f"Gene '{gene_symbol}': Retrying Gene UID search with broader term '{gene_symbol}[sym]'"
+            )
+            search_term_broad = f"{gene_symbol}[sym]"
+            handle_search_broad = _entrez_retry_call(
+                Entrez.esearch,
+                db="gene",
+                term=search_term_broad,
+                retmax="20",
+                retries=retries,
+            )
+            if not handle_search_broad:
+                return None
+            record_search_broad = Entrez.read(handle_search_broad)
+            handle_search_broad.close()
+            gene_ids = record_search_broad.get("IdList", [])
+            if not gene_ids:
+                log.warning(
+                    f"Gene '{gene_symbol}': Still no Gene UIDs found with broader term '{search_term_broad}'."
+                )
+                return None
+
         log.debug(f"Gene '{gene_symbol}': Found Gene UIDs: {gene_ids}")
 
         log.debug(
@@ -96,12 +116,7 @@ def fetch_protein_fasta_for_gene(
 
         protein_ids_all: List[str] = []
         handle_elink = _entrez_retry_call(
-            Entrez.elink,
-            dbfrom="gene",
-            db="protein",
-            id=gene_ids,
-            linkname="gene_protein_refseq",
-            retries=retries,
+            Entrez.elink, dbfrom="gene", db="protein", id=gene_ids, retries=retries
         )
         if not handle_elink:
             return None
@@ -109,37 +124,24 @@ def fetch_protein_fasta_for_gene(
         record_elink_list = Entrez.read(handle_elink)
         handle_elink.close()
 
-        for record_elink in record_elink_list:
-            link_set_db = record_elink.get("LinkSetDb")
-            if link_set_db and link_set_db[0].get("Link"):
-                for link in link_set_db[0]["Link"]:
-                    protein_ids_all.append(link["Id"])
+        for record_elink_item in record_elink_list:
+            if "LinkSetDb" in record_elink_item and record_elink_item["LinkSetDb"]:
+                for link_info in record_elink_item["LinkSetDb"][0].get("Link", []):
+                    protein_ids_all.append(link_info["Id"])
+            elif "IdList" in record_elink_item:
+                for protein_id in record_elink_item["IdList"]:
+                    protein_ids_all.append(protein_id)
 
         if not protein_ids_all:
             log.warning(
-                f"Gene '{gene_symbol}': No RefSeq Protein UIDs found. Trying broader elink."
+                f"Gene '{gene_symbol}': No linked Protein UIDs found from direct gene-protein elink."
             )
-            time.sleep(0.34)
-            handle_elink_broad = _entrez_retry_call(
-                Entrez.elink, dbfrom="gene", db="protein", id=gene_ids, retries=retries
-            )
-            if not handle_elink_broad:
-                return None
-            record_elink_broad_list = Entrez.read(handle_elink_broad)
-            handle_elink_broad.close()
-            for record_elink_broad in record_elink_broad_list:
-                link_set_db_broad = record_elink_broad.get("LinkSetDb")
-                if link_set_db_broad and link_set_db_broad[0].get("Link"):
-                    for link in link_set_db_broad[0]["Link"]:
-                        protein_ids_all.append(link["Id"])
-            if not protein_ids_all:
-                log.warning(
-                    f"Gene '{gene_symbol}': Still no linked Protein UIDs after broader search."
-                )
-                return None
+            return None
+
+        protein_ids_all = sorted(list(set(protein_ids_all)))
 
         log.debug(
-            f"Gene '{gene_symbol}': Found {len(protein_ids_all)} linked Protein UIDs (pre-filter). E.g., {protein_ids_all[:5]}"
+            f"Gene '{gene_symbol}': Found {len(protein_ids_all)} unique linked Protein UIDs. E.g., {protein_ids_all[:5]}"
         )
 
         log.debug(
