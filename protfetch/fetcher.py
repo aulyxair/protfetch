@@ -198,19 +198,50 @@ def filter_fasta_by_keyword(
         return fasta_content_string
 
     log.debug(
-        f"Filtering FASTA content (gene: {gene_symbol_for_log}) with keyword: '{keyword}'"
+        f"Filtering FASTA content (gene: {gene_symbol_for_log}) with keyword: '{keyword}' using at-least-2-words logic."
     )
+
+    keyword_words = {
+        word.lower() for word in keyword.split() if len(word) > 1
+    }  # Ignore very short words like 'a', 'of'
+    if not keyword_words:  # If keyword was only very short words or empty
+        log.debug(
+            f"Keyword '{keyword}' resulted in no usable words for filtering. Returning all records."
+        )
+        return fasta_content_string
+
     filtered_records: List[Any] = []
     num_total_records = 0
+
     try:
         for record in SeqIO.parse(StringIO(fasta_content_string), "fasta"):
             num_total_records += 1
-            if keyword.lower() in record.description.lower():
+            header_lower = record.description.lower()
+
+            # Count matches
+            matches = 0
+            for kw_word in keyword_words:
+                if (
+                    kw_word in header_lower
+                ):  # Simple substring check for each keyword word
+                    matches += 1
+
+            should_keep = False
+            if len(keyword_words) == 1:
+                if matches >= 1:
+                    should_keep = True
+            elif (
+                len(keyword_words) > 1
+            ):  # Covers keywords with 2 or more significant words
+                if matches >= 2:
+                    should_keep = True
+
+            if should_keep:
                 filtered_records.append(record)
 
         if not filtered_records:
             log.warning(
-                f"Keyword '{keyword}' not found in any headers for gene '{gene_symbol_for_log}'. "
+                f"Keyword '{keyword}' (significant words: {keyword_words}) did not match enough words in any headers for gene '{gene_symbol_for_log}'. "
                 f"Original FASTA had {num_total_records} records."
             )
             return ""
@@ -219,7 +250,7 @@ def filter_fasta_by_keyword(
         SeqIO.write(filtered_records, output_fasta_io, "fasta")
         filtered_fasta_str = output_fasta_io.getvalue()
         log.debug(
-            f"Keyword filtering for gene '{gene_symbol_for_log}': {len(filtered_records)}/{num_total_records} records kept."
+            f"Keyword filtering for gene '{gene_symbol_for_log}': {len(filtered_records)}/{num_total_records} records kept with keyword '{keyword}'."
         )
         return filtered_fasta_str
 
