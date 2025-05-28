@@ -1,11 +1,14 @@
-import pytest
 from pathlib import Path
-from protfetch.utils import parse_gene_list_file, GeneInput
+
+import pytest
+
+from protfetch.utils import GeneInput, parse_gene_list_file
+
 
 def test_parse_gene_list_file_formats(sample_gene_list_file: Path):
     parsed_genes = parse_gene_list_file(str(sample_gene_list_file))
     assert len(parsed_genes) == 3
-    
+
     assert isinstance(parsed_genes[0], GeneInput)
     assert parsed_genes[0].gene_symbol == "PRKACA"
     assert parsed_genes[0].query_keyword == "Protein Kinase A"

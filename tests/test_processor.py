@@ -1,6 +1,8 @@
 from io import StringIO
+
 import pytest
-from protfetch.processor import process_fasta_stream, ProcessedProtein
+
+from protfetch.processor import ProcessedProtein, process_fasta_stream
 
 MOCK_FASTA_CONTENT_PROCESSOR = """>sp|P01111|RAS_HUMAN HRAS proto-oncogene OS=Homo sapiens OX=9606 GN=HRAS PE=1 SV=1
 MTEYKLVVVGAGGVGKSALTIQLIQNHFVDEYDPTIEDSYRKQVVIDGETCLLDILDTAGQEEYSAMRDQYMRTGEGFLCVFAINNTKSFEDIHQYREQIKRVKDSDDVPMVLVGNKCDLAARTVESRQAQDLARSYGIPYIETSAKTRQGVEDAFYTLVREIRQHKLRKLNPPDESGPGCMNCKCVLS
@@ -14,14 +16,15 @@ SAMRDQYMRTGEGFLCVFAINNTKSFEDIHQYREQIKRVKDSDDVPMVLVGNKCDLAARTVESRQAQDLARSYGIPYIET
 MKLSIVAVAGAGNVGKSSIVNIQEIHYSNTRNFIDKYDARTVKNLIVGETLLLDVLDTAGQEEYAEIRNWYITSKGFLCVYSVNSTKSFDELLTKYKELIKKKSKTPVFIIGNKIDLRENDIRKFLIAYNPDEKLKGLKILK
 """
 
+
 def test_process_fasta_stream_filters():
     fasta_stream = StringIO(MOCK_FASTA_CONTENT_PROCESSOR)
     gene_symbol = "TESTGENE"
     max_dist = 2
-    
+
     proteins, stats = process_fasta_stream(fasta_stream, gene_symbol, max_dist)
     accessions_kept = {p.accession for p in proteins}
-    
+
     assert "A0A023" in accessions_kept
     assert "P01111" not in accessions_kept
     assert "P01112" not in accessions_kept
