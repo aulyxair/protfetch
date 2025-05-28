@@ -4,12 +4,11 @@ import sys
 from pathlib import Path
 from typing import List, Union
 
-# --- Constants ---
 DEFAULT_MAX_DIST = 4
-DEFAULT_ENTREZ_EMAIL = "your.email@example.com"  # User should override
-DEFAULT_REQUEST_TIMEOUT = 60  # seconds
+DEFAULT_ENTREZ_EMAIL = "your.email@example.com"
+DEFAULT_REQUEST_TIMEOUT = 60
 DEFAULT_REQUEST_RETRIES = 3
-DEFAULT_MAX_WORKERS = 5  # For concurrent fetching
+DEFAULT_MAX_WORKERS = 5
 
 OUTPUT_SUBDIR_INDIVIDUAL = "individual_gene_files"
 COMBINED_FASTA_SHORT_SUFFIX = "_combo_short.fasta"
@@ -17,25 +16,22 @@ COMBINED_FASTA_FULL_SUFFIX = "_combo_full.fasta"
 COMBINED_CSV_SUFFIX = "_combo_meta.csv"
 
 
-# --- Logging Setup ---
 def setup_logging(level=logging.INFO):
-    """
-    Sets up basic logging.
-    """
     logger = logging.getLogger("protfetch")
+    if logger.hasHandlers():
+        logger.handlers.clear()
     logger.setLevel(level)
-
+    logger.propagate = False
     ch = logging.StreamHandler(sys.stderr)
     ch.setLevel(level)
-
     formatter = logging.Formatter(
         "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
     )
-
     ch.setFormatter(formatter)
-
-    if not logger.handlers:
-        logger.addHandler(ch)
+    logger.addHandler(ch)
+    logger.debug(
+        f"Logging for 'protfetch' initialized with level {logging.getLevelName(level)}."
+    )
     return logger
 
 
@@ -44,24 +40,14 @@ if not log.handlers:
     log.addHandler(logging.NullHandler())
 
 
-# --- File System Utilities ---
 def ensure_output_dir(path_str: str) -> Path:
-    """
-    Ensures the output directory exists.
-    Creates it if it doesn't.
-    Returns a Path object.
-    """
     path = Path(path_str)
     path.mkdir(parents=True, exist_ok=True)
+    log.debug(f"Ensured output directory exists: {path}")
     return path
 
 
-# --- Input Parsing ---
 class GeneInput:
-    """
-    Represents a single gene input, handling the two formats.
-    """
-
     def __init__(self, line: str):
         self.original_line = line.strip()
         self.gene_symbol: str = ""
@@ -94,29 +80,31 @@ class GeneInput:
 
 
 def parse_gene_list_file(file_path: str) -> List[GeneInput]:
-    """
-    Parses the input gene list file.
-    Handles two formats:
-    1. Protein Name | GENE_SYMBOL
-    2. GENE_SYMBOL
-    """
+    log.debug(f"Attempting to parse gene list file: {file_path}")
     genes_to_process: List[GeneInput] = []
     try:
         with open(file_path, "r") as f:
             for i, line_content in enumerate(f, 1):
                 line_content = line_content.strip()
+                log.debug(f"Reading line {i}: '{line_content}'")
                 if not line_content or line_content.startswith("#"):
+                    log.debug(f"Skipping line {i} (empty or comment).")
                     continue
                 try:
-                    genes_to_process.append(GeneInput(line_content))
+                    gene_input = GeneInput(line_content)
+                    genes_to_process.append(gene_input)
+                    log.debug(f"Parsed line {i}: {gene_input}")
                 except ValueError as e:
                     log.warning(
                         f"Skipping invalid line {i} in '{file_path}': {line_content}. Error: {e}"
                     )
+        log.info(
+            f"Successfully parsed {len(genes_to_process)} gene inputs from {file_path}."
+        )
     except FileNotFoundError:
         log.error(f"Input gene list file not found: {file_path}")
         raise
     except Exception as e:
-        log.error(f"Error reading gene list file '{file_path}': {e}")
+        log.error(f"Error reading gene list file '{file_path}': {e}", exc_info=True)
         raise
     return genes_to_process
