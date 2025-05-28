@@ -6,7 +6,7 @@ build-backend = "setuptools.build_meta"
 name = "protfetch"
 version = "0.1.0"
 authors = [
-  { name="Ingmar Lesch", email="i.lesch@proton.me" }, 
+  { name="Ingmar Lesch", email="ingmar.lesch@tum.de" }, 
 ]
 description = "A tool to fetch and process protein FASTA sequences and metadata from NCBI based on a gene list."
 readme = "README.md"
