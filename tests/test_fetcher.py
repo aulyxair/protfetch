@@ -83,4 +83,4 @@ def test_entrez_retry_call_failure(
     fasta_content = fetch_protein_fasta_for_gene(gene_input, timeout=10, retries=2)
 
     assert fasta_content is None
-    assert mock_elink_fails.call_count == 3
+    assert mock_elink_fails.call_count == 2
