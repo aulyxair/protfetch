@@ -1,5 +1,5 @@
 from io import StringIO
-import pytest # Required for running tests
+import pytest  # Required for running tests
 from protfetch.processor import process_fasta_stream, ProcessedProtein
 
 MOCK_FASTA_CONTENT_PROCESSOR = """>sp|P01111|RAS_HUMAN HRAS proto-oncogene OS=Homo sapiens OX=9606 GN=HRAS PE=1 SV=1
@@ -14,24 +14,24 @@ SAMRDQYMRTGEGFLCVFAINNTKSFEDIHQYREQIKRVKDSDDVPMVLVGNKCDLAARTVESRQAQDLARSYGIPYIET
 MKLSIVAVAGAGNVGKSSIVNIQEIHYSNTRNFIDKYDARTVKNLIVGETLLLDVLDTAGQEEYAEIRNWYITSKGFLCVYSVNSTKSFDELLTKYKELIKKKSKTPVFIIGNKIDLRENDIRKFLIAYNPDEKLKGLKILK
 """
 
+
 def test_process_fasta_stream_filters():
     fasta_stream = StringIO(MOCK_FASTA_CONTENT_PROCESSOR)
     gene_symbol = "TESTGENE"
-    max_dist = 2 # Levenshtein distance for near-identical
-    
-    proteins, stats = process_fasta_stream(fasta_stream, gene_symbol, max_dist)
-    
-    accessions_kept = {p.accession for p in proteins}
+    max_dist = 2  # Levenshtein distance for near-identical
 
+    proteins, stats = process_fasta_stream(fasta_stream, gene_symbol, max_dist)
+
+    accessions_kept = {p.accession for p in proteins}
 
     assert "P01111" in accessions_kept
     assert "A0A023" not in accessions_kept
-    assert "P01112" not in accessions_kept 
-    assert "FRAG01" not in accessions_kept 
+    assert "P01112" not in accessions_kept
+    assert "FRAG01" not in accessions_kept
     assert "UNRELATED" in accessions_kept
 
-    assert stats["initial_unique_sequences_parsed"] == 5 
-    assert stats["removed_identical_sequences"] == 1 
-    assert stats["removed_near_identical_sequences"] == 1 
-    assert stats["removed_fragment_sequences"] == 1 
-    assert stats["final_sequences_kept"] == 2 
+    assert stats["initial_unique_sequences_parsed"] == 5
+    assert stats["removed_identical_sequences"] == 1
+    assert stats["removed_near_identical_sequences"] == 1
+    assert stats["removed_fragment_sequences"] == 1
+    assert stats["final_sequences_kept"] == 2
