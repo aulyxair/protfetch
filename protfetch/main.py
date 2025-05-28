@@ -421,9 +421,7 @@ def cli_entry():
         "--debug", action="store_true", help="Enable detailed debug logging."
     )
     parser.add_argument(
-        "-v", "--version",
-        action="version",
-        version=f"%(prog)s {__version__}" 
+        "-v", "--version", action="version", version=f"%(prog)s {__version__}"
     )
 
     args = parser.parse_args()
