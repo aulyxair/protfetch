@@ -2,7 +2,7 @@
 import logging
 import sys
 from pathlib import Path
-from typing import List
+from typing import List, Union
 
 # --- Constants ---
 DEFAULT_MAX_DIST = 4
