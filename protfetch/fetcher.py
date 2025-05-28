@@ -1,13 +1,14 @@
 # protfetch/fetcher.py
 import time
-from Bio import Entrez, SeqIO
 from io import StringIO
-import requests  # For retryable sessions
 
-from .utils import log, GeneInput
-from .processor import (
+import requests  # For retryable sessions
+from Bio import Entrez, SeqIO
+
+from .processor import (  # For type hinting if needed, though fetcher primarily returns raw FASTA
     ProcessedProtein,
-)  # For type hinting if needed, though fetcher primarily returns raw FASTA
+)
+from .utils import GeneInput, log
 
 
 # --- Entrez Configuration ---

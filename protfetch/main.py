@@ -2,41 +2,41 @@
 import argparse
 import logging
 import os
-from pathlib import Path
-from io import StringIO
-from concurrent.futures import ThreadPoolExecutor, as_completed
 import time
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from io import StringIO
+from pathlib import Path
 
 from tqdm import tqdm
-from . import __version__
-from . import utils
-from .utils import (
-    log,
-    setup_logging,
-    parse_gene_list_file,
-    GeneInput,
-    ensure_output_dir,
-    DEFAULT_MAX_DIST,
-    DEFAULT_ENTREZ_EMAIL,
-    DEFAULT_REQUEST_TIMEOUT,
-    DEFAULT_REQUEST_RETRIES,
-    DEFAULT_MAX_WORKERS,
-    OUTPUT_SUBDIR_INDIVIDUAL,
-    COMBINED_FASTA_SHORT_SUFFIX,
-    COMBINED_FASTA_FULL_SUFFIX,
-    COMBINED_CSV_SUFFIX,
-)
+
+from . import __version__, utils
 from .fetcher import (
     configure_entrez,
     fetch_protein_fasta_for_gene,
     filter_fasta_by_keyword,
 )
 from .processor import (
-    process_fasta_stream,
     ProcessedProtein,
-    write_processed_proteins_to_fasta,
-    write_processed_proteins_to_csv,
     deduplicate_processed_proteins,
+    process_fasta_stream,
+    write_processed_proteins_to_csv,
+    write_processed_proteins_to_fasta,
+)
+from .utils import (
+    COMBINED_CSV_SUFFIX,
+    COMBINED_FASTA_FULL_SUFFIX,
+    COMBINED_FASTA_SHORT_SUFFIX,
+    DEFAULT_ENTREZ_EMAIL,
+    DEFAULT_MAX_DIST,
+    DEFAULT_MAX_WORKERS,
+    DEFAULT_REQUEST_RETRIES,
+    DEFAULT_REQUEST_TIMEOUT,
+    OUTPUT_SUBDIR_INDIVIDUAL,
+    GeneInput,
+    ensure_output_dir,
+    log,
+    parse_gene_list_file,
+    setup_logging,
 )
 
 

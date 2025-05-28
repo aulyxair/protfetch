@@ -1,6 +1,8 @@
-import pytest
 from pathlib import Path
-from protfetch.utils import parse_gene_list_file, GeneInput
+
+import pytest
+
+from protfetch.utils import GeneInput, parse_gene_list_file
 
 
 def test_parse_gene_list_file_formats(

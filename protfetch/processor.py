@@ -1,9 +1,9 @@
 # protfetch/processor.py
 import csv
-from collections import defaultdict
 import time
+from collections import defaultdict
 from io import StringIO
-from typing import TextIO, Any
+from typing import Any, TextIO
 
 from Bio import SeqIO
 from Bio.Seq import Seq

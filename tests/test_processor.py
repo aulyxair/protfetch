@@ -1,6 +1,8 @@
 from io import StringIO
+
 import pytest  # Required for running tests
-from protfetch.processor import process_fasta_stream, ProcessedProtein
+
+from protfetch.processor import ProcessedProtein, process_fasta_stream
 
 MOCK_FASTA_CONTENT_PROCESSOR = """>sp|P01111|RAS_HUMAN HRAS proto-oncogene OS=Homo sapiens OX=9606 GN=HRAS PE=1 SV=1
 MTEYKLVVVGAGGVGKSALTIQLIQNHFVDEYDPTIEDSYRKQVVIDGETCLLDILDTAGQEEYSAMRDQYMRTGEGFLCVFAINNTKSFEDIHQYREQIKRVKDSDDVPMVLVGNKCDLAARTVESRQAQDLARSYGIPYIETSAKTRQGVEDAFYTLVREIRQHKLRKLNPPDESGPGCMNCKCVLS

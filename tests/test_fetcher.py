@@ -1,10 +1,12 @@
+from unittest.mock import MagicMock, patch
+
 import pytest
-from unittest.mock import patch, MagicMock
 from Bio import Entrez
+
 from protfetch.fetcher import (
-    fetch_protein_fasta_for_gene,
-    configure_entrez,
     _entrez_retry_call,
+    configure_entrez,
+    fetch_protein_fasta_for_gene,
 )
 from protfetch.utils import GeneInput
 
