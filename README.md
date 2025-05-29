@@ -1,3 +1,9 @@
+[![CI Status](https://github.com/aulyxair/protfetch/actions/workflows/ci.yml/badge.svg)](https://github.com/aulyxair/protfetch/actions/workflows/ci.yml)
+[![PyPI version](https://img.shields.io/pypi/v/protfetch.svg)](https://pypi.org/project/protfetch/)
+[![PyPI - Python Version](https://img.shields.io/pypi/pyversions/protfetch.svg)](https://pypi.org/project/protfetch/)
+[![License](https://img.shields.io/pypi/l/protfetch.svg)](https://github.com/yourusername/protfetch/blob/main/LICENSE)
+[![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
+
 # protfetch
 
 **protfetch** is a command-line tool designed to fetch and process protein FASTA sequences and associated metadata from NCBI's Entrez databases. Given a list of gene symbols (or protein names and gene symbols), it retrieves relevant protein sequences, filters them based on various criteria (identity, similarity, fragments), and outputs curated FASTA files and a metadata CSV.
