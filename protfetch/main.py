@@ -6,6 +6,7 @@ import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from io import StringIO
 from pathlib import Path
+from typing import Union, Tuple, List, Dict
 
 from tqdm import tqdm
 
