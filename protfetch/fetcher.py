@@ -1,7 +1,8 @@
+import http.client
 import time
 from io import StringIO
 from typing import Any, Callable, List, Union
-import http.client
+
 import requests
 from Bio import Entrez, SeqIO
 
@@ -17,52 +18,88 @@ def configure_entrez(email: str, api_key: Union[str, None] = None):
     )
 
 
-def _entrez_retry_call(entrez_func: Callable[..., Any], *args: Any, retries: int = 3, delay: int = 5, **kwargs: Any) -> Any:
-    for attempt in range(retries): # This loop runs 'retries' times
+def _entrez_retry_call(
+    entrez_func: Callable[..., Any],
+    *args: Any,
+    retries: int = 3,
+    delay: int = 5,
+    **kwargs: Any,
+) -> Any:
+    for attempt in range(retries):  # This loop runs 'retries' times
         try:
             handle = entrez_func(*args, **kwargs)
             return handle
-        except (requests.exceptions.ConnectionError, requests.exceptions.Timeout, requests.exceptions.RequestException, http.client.IncompleteRead) as e: # Added IncompleteRead here
+        except (
+            requests.exceptions.ConnectionError,
+            requests.exceptions.Timeout,
+            requests.exceptions.RequestException,
+            http.client.IncompleteRead,
+        ) as e:  # Added IncompleteRead here
             current_delay = delay
             # Check for HTTP 429 specifically, even if wrapped
-            if isinstance(e, requests.exceptions.HTTPError) and e.response.status_code == 429:
-                log.warning(f"Entrez call received HTTP 429 (Too Many Requests) (Attempt {attempt + 1}/{retries}). Retrying in 60s...")
-                current_delay = 60 # Significantly longer delay for 429
+            if (
+                isinstance(e, requests.exceptions.HTTPError)
+                and e.response.status_code == 429
+            ):
+                log.warning(
+                    f"Entrez call received HTTP 429 (Too Many Requests) (Attempt {attempt + 1}/{retries}). Retrying in 60s..."
+                )
+                current_delay = 60  # Significantly longer delay for 429
             elif isinstance(e, http.client.IncompleteRead):
-                log.warning(f"Entrez call resulted in IncompleteRead (Attempt {attempt + 1}/{retries}): {e}. Retrying in {current_delay}s...")
+                log.warning(
+                    f"Entrez call resulted in IncompleteRead (Attempt {attempt + 1}/{retries}): {e}. Retrying in {current_delay}s..."
+                )
             else:
-                log.warning(f"Entrez call network error (Attempt {attempt + 1}/{retries}): {e}. Retrying in {current_delay}s...")
+                log.warning(
+                    f"Entrez call network error (Attempt {attempt + 1}/{retries}): {e}. Retrying in {current_delay}s..."
+                )
 
             if attempt + 1 == retries:
-                log.error(f"Entrez call failed after {retries} attempts due to network/request issues: {e}")
+                log.error(
+                    f"Entrez call failed after {retries} attempts due to network/request issues: {e}"
+                )
                 raise
             time.sleep(current_delay)
-        except Exception as e: # Catch other Entrez/BioPython errors
+        except Exception as e:  # Catch other Entrez/BioPython errors
             is_http_error_str = "HTTP Error" in str(e) or "NCBI" in str(e)
-            is_http_error_type = isinstance(e, (IOError, RuntimeError)) 
+            is_http_error_type = isinstance(e, (IOError, RuntimeError))
 
             if is_http_error_str or is_http_error_type:
                 current_delay = delay
                 status_code = None
-                if hasattr(e, 'code') and isinstance(e.code, int): # For urllib.error.HTTPError
+                if hasattr(e, "code") and isinstance(
+                    e.code, int
+                ):  # For urllib.error.HTTPError
                     status_code = e.code
-                elif hasattr(e, 'url') and 'HTTP Error' in str(e): # Simple string check
+                elif hasattr(e, "url") and "HTTP Error" in str(
+                    e
+                ):  # Simple string check
                     try:
                         status_code = int(str(e).split("HTTP Error ")[1].split(":")[0])
-                    except: pass # Ignore if parsing fails
+                    except:
+                        pass  # Ignore if parsing fails
 
                 if status_code == 429:
-                    log.warning(f"Entrez call resulted in an NCBI/HTTP error (Attempt {attempt + 1}/{retries}) - Specifically HTTP 429: {e}. Retrying in 60s...")
+                    log.warning(
+                        f"Entrez call resulted in an NCBI/HTTP error (Attempt {attempt + 1}/{retries}) - Specifically HTTP 429: {e}. Retrying in 60s..."
+                    )
                     current_delay = 60
                 else:
-                    log.warning(f"Entrez call resulted in an NCBI/HTTP error (Attempt {attempt + 1}/{retries}): {e}. Retrying in {current_delay}s...")
-                 
+                    log.warning(
+                        f"Entrez call resulted in an NCBI/HTTP error (Attempt {attempt + 1}/{retries}): {e}. Retrying in {current_delay}s..."
+                    )
+
                 if attempt + 1 == retries:
-                    log.error(f"Entrez call failed after {retries} NCBI/HTTP attempts: {e}")
+                    log.error(
+                        f"Entrez call failed after {retries} NCBI/HTTP attempts: {e}"
+                    )
                     raise
                 time.sleep(current_delay)
-            else: # Non-retryable error
-                log.error(f"Unexpected, non-retryable error during Entrez call: {e}", exc_info=True)
+            else:  # Non-retryable error
+                log.error(
+                    f"Unexpected, non-retryable error during Entrez call: {e}",
+                    exc_info=True,
+                )
                 raise
     return None
 
@@ -175,12 +212,14 @@ def fetch_protein_fasta_for_gene(
 
             try:
                 fasta_batch_data = handle_efetch.read()
-            except http.client.IncompleteRead as e_read:                
-                log.error(f"Gene '{gene_symbol}': Persistent IncompleteRead error during efetch.read() for batch {batch_ids}: {e_read}. Skipping batch.")
+            except http.client.IncompleteRead as e_read:
+                log.error(
+                    f"Gene '{gene_symbol}': Persistent IncompleteRead error during efetch.read() for batch {batch_ids}: {e_read}. Skipping batch."
+                )
                 handle_efetch.close()
-                continue # Skip this problematic batch
+                continue  # Skip this problematic batch
             finally:
-                handle_efetch.close() 
+                handle_efetch.close()
 
             handle_efetch.close()
             fasta_data_list.append(fasta_batch_data)

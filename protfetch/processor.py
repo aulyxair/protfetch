@@ -165,7 +165,9 @@ def process_fasta_stream(
         )
 
     stats["initial_unique_sequences_parsed"] = len(parsed_proteins_map)
-    log.info(f"Gene {input_gene_symbol}: Initial parsing yielded {stats['initial_unique_sequences_parsed']} unique accessions from {stats['headers_encountered']} input records.")
+    log.info(
+        f"Gene {input_gene_symbol}: Initial parsing yielded {stats['initial_unique_sequences_parsed']} unique accessions from {stats['headers_encountered']} input records."
+    )
 
     if not parsed_proteins_map:
         log.info(f"Gene {input_gene_symbol}: No valid sequences parsed from input.")
@@ -291,7 +293,9 @@ def process_fasta_stream(
     final_proteins_kept.sort(key=lambda p: p.accession)
     stats["final_sequences_kept"] = len(final_proteins_kept)
 
-    log.info(f"Gene {input_gene_symbol}: Processing complete. Started with {stats['headers_encountered']} records (from keyword-filtered input), kept {stats['final_sequences_kept']} sequences after all filters.")
+    log.info(
+        f"Gene {input_gene_symbol}: Processing complete. Started with {stats['headers_encountered']} records (from keyword-filtered input), kept {stats['final_sequences_kept']} sequences after all filters."
+    )
     return final_proteins_kept, stats
 
 
