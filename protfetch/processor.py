@@ -324,7 +324,7 @@ def write_processed_proteins_to_csv(
     try:
         with open(output_file_path, "w", newline="") as outfile_csv:
             csv_writer = csv.writer(outfile_csv)
-            csv_writer.writerow(["accession", "gene_input", "identifier_from_header"])
+            csv_writer.writerow(["identifier", "gene", "species"])
             for protein in proteins:
                 csv_writer.writerow(protein.get_csv_row())
         log.debug(f"Metadata CSV saved to: {output_file_path}")
