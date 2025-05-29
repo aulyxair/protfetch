@@ -42,8 +42,6 @@
 ```bash
 pip install protfetch
 ```
-*(Note: This command will work once the package is published to PyPI.)*
-
 ### From Source (for development)
 1. Clone the repository:
 ```bash
