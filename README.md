@@ -69,7 +69,7 @@ protfetch <input_gene_list_file> [OPTIONS]
 
 ### NCBI Configuration:
 - `--entrez-email YOUR_EMAIL`: **Strongly recommended.** Your email address for NCBI Entrez. NCBI requires this for reliable access and to contact you if there are issues with your queries.
-- `--entrez-api-key YOUR_API_KEY`: *(Optional)* Your NCBI API key for higher request rates (highly recommended).
+- `--entrez-api-key YOUR_API_KEY`: *(**Optional, but highly recommended**)* Your NCBI API key for higher request rates.
 
 ### Key Options:
 - `-o, --output-dir DIR`: Directory to save output files (default: `protfetch_results`)
