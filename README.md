@@ -19,7 +19,7 @@
 - **Keyword Filtering**: Filters fetched protein sequences based on keywords derived from the input (protein name or gene symbol) found in FASTA headers. This step can be skipped.
 
 - **Sequence Processing & Filtering**:
-  - Parses complex FASTA headers to extract accession and other identifiers
+  - Parses FASTA headers to extract accession and other identifiers
   - Removes duplicate entries by accession (first seen is kept)
   - Filters out identical sequences (keeps one representative, typically by lexicographical accession)
   - Filters near-identical sequences using Levenshtein distance (configurable threshold)
@@ -38,22 +38,9 @@
 - Python 3.8 or higher
 - pip (Python package installer)
 
-### From PyPI (Recommended)
 ```bash
 pip install protfetch
 ```
-### From Source (for development)
-1. Clone the repository:
-```bash
-git clone https://github.com/yourusername/protfetch.git  # Update with your repo URL
-cd protfetch
-```
-
-2. Install in editable mode:
-```bash
-pip install -e .
-```
-
 ## Usage
 
 ```bash
