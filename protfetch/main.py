@@ -6,11 +6,11 @@ import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from io import StringIO
 from pathlib import Path
-from typing import Dict, List, Tuple, Union
+from typing import Any, Dict, List, Tuple, Union
 
 from tqdm import tqdm
 
-from . import __version__, utils
+from . import __version__
 from .fetcher import (
     configure_entrez,
     fetch_protein_fasta_for_gene,
@@ -43,12 +43,12 @@ from .utils import (
 
 def process_single_gene_task(
     gene_input: GeneInput,
-    output_dir_individual: Union[Path, None],  # Corrected type hint for Path | None
+    output_dir_individual: Union[Path, None],
     max_dist: int,
     entrez_timeout: int,
     entrez_retries: int,
     skip_keyword_filter: bool,
-) -> Union[Tuple[str, List[ProcessedProtein], Dict], None]:  # Corrected type hint
+) -> Union[Tuple[str, List[ProcessedProtein], Dict[str, Any]], None]:
     gene_symbol = gene_input.gene_symbol
     log.info(
         f"Starting processing for gene: {gene_symbol} (Keyword: '{gene_input.query_keyword}')"
@@ -61,7 +61,17 @@ def process_single_gene_task(
         log.error(f"Failed to fetch FASTA data for gene {gene_symbol}.")
         return gene_symbol, [], {"error": "Fetch failed", "status": "Fetch failed"}
 
-    keyword_filtered_fasta_content = raw_fasta_content  # Initialize with raw content
+    # Save raw NCBI FASTA if requested
+    if output_dir_individual and raw_fasta_content:
+        try:
+            raw_ncbi_path = output_dir_individual / f"{gene_symbol}_0_raw_ncbi.fasta"
+            with open(raw_ncbi_path, "w") as f_raw:
+                f_raw.write(raw_fasta_content)
+            log.debug(f"Saved raw NCBI FASTA for {gene_symbol} to {raw_ncbi_path}")
+        except Exception as e_save_raw:
+            log.error(f"Error saving raw NCBI FASTA for {gene_symbol}: {e_save_raw}")
+
+    keyword_filtered_fasta_content = raw_fasta_content
     if not skip_keyword_filter:
         log.info(
             f"Gene '{gene_symbol}': Applying keyword filter with keyword '{gene_input.query_keyword}'..."
@@ -69,20 +79,48 @@ def process_single_gene_task(
         keyword_filtered_fasta_content = filter_fasta_by_keyword(
             raw_fasta_content, gene_input.query_keyword, gene_symbol_for_log=gene_symbol
         )
-        if (
-            not keyword_filtered_fasta_content and raw_fasta_content
-        ):  # Check if filtering resulted in empty but started with content
+        if not keyword_filtered_fasta_content and raw_fasta_content:
             log.warning(
                 f"Gene '{gene_symbol}': Keyword filtering resulted in zero sequences."
             )
+
+        if output_dir_individual and keyword_filtered_fasta_content:
+            try:
+                kw_filtered_path = (
+                    output_dir_individual / f"{gene_symbol}_1_keyword_filtered.fasta"
+                )
+                with open(kw_filtered_path, "w") as f_kw:
+                    f_kw.write(keyword_filtered_fasta_content)
+                log.debug(
+                    f"Saved keyword-filtered FASTA for {gene_symbol} to {kw_filtered_path}"
+                )
+            except Exception as e_save_kw:
+                log.error(
+                    f"Error saving keyword-filtered FASTA for {gene_symbol}: {e_save_kw}"
+                )
     else:
         log.info(f"Gene '{gene_symbol}': Skipping keyword filtering.")
+        if (
+            output_dir_individual and keyword_filtered_fasta_content
+        ):  # which is raw_fasta_content here
+            try:
+                kw_filtered_path = (
+                    output_dir_individual / f"{gene_symbol}_1_keyword_filtered.fasta"
+                )
+                with open(kw_filtered_path, "w") as f_kw:
+                    f_kw.write(keyword_filtered_fasta_content)
+                log.debug(
+                    f"Saved (unfiltered by keyword) FASTA for {gene_symbol} as {kw_filtered_path}"
+                )
+            except Exception as e_save_kw_skipped:
+                log.error(
+                    f"Error saving (unfiltered by keyword) FASTA for {gene_symbol}: {e_save_kw_skipped}"
+                )
 
     if not keyword_filtered_fasta_content.strip():
         log.info(
             f"No FASTA content to process for gene {gene_symbol} after optional keyword filter."
         )
-        # Return stats indicating no content for processor step
         return (
             gene_symbol,
             [],
@@ -106,42 +144,39 @@ def process_single_gene_task(
             f"No proteins kept after sequence processing filters for gene {gene_symbol}."
         )
     else:
-        # This log now reflects the outcome of the processor.py filters
         log.info(
             f"Gene {gene_symbol}: Sequence processing filters complete. Kept {len(processed_proteins)} proteins from {stats.get('headers_encountered', 'N/A')} records fed to processor."
         )
 
         if output_dir_individual:
             try:
-                individual_fasta_short = (
-                    output_dir_individual / f"{gene_symbol}_filtered_short.fasta"
+                final_fasta_short = (
+                    output_dir_individual / f"{gene_symbol}_2_final_short.fasta"
                 )
-                individual_fasta_full = (
-                    output_dir_individual / f"{gene_symbol}_filtered_full.fasta"
+                final_fasta_full = (
+                    output_dir_individual / f"{gene_symbol}_2_final_full.fasta"
                 )
-                individual_csv = (
-                    output_dir_individual / f"{gene_symbol}_filtered_meta.csv"
-                )
+                final_csv = output_dir_individual / f"{gene_symbol}_2_final_meta.csv"
 
                 write_processed_proteins_to_fasta(
-                    processed_proteins,
-                    str(individual_fasta_short),
-                    use_full_header=False,
+                    processed_proteins, str(final_fasta_short), use_full_header=False
                 )
                 write_processed_proteins_to_fasta(
-                    processed_proteins, str(individual_fasta_full), use_full_header=True
+                    processed_proteins, str(final_fasta_full), use_full_header=True
                 )
-                write_processed_proteins_to_csv(processed_proteins, str(individual_csv))
+                write_processed_proteins_to_csv(processed_proteins, str(final_csv))
                 log.debug(
-                    f"Individual files for {gene_symbol} saved to {output_dir_individual}"
+                    f"Final individual files for {gene_symbol} saved to {output_dir_individual}"
                 )
             except Exception as e:
-                log.error(f"Error writing individual files for {gene_symbol}: {e}")
+                log.error(
+                    f"Error writing final individual files for {gene_symbol}: {e}"
+                )
 
     return gene_symbol, processed_proteins, stats
 
 
-def main_workflow(args):
+def main_workflow(args: argparse.Namespace):
     start_time = time.time()
 
     log_level = logging.DEBUG if args.debug else logging.INFO
@@ -158,14 +193,16 @@ def main_workflow(args):
     configure_entrez(args.entrez_email, args.entrez_api_key)
 
     output_main_dir = ensure_output_dir(args.output_dir)
-    output_dir_individual = None
+    output_dir_individual: Union[Path, None] = None
     if args.save_individual_files:
         output_dir_individual = ensure_output_dir(
             output_main_dir / OUTPUT_SUBDIR_INDIVIDUAL
         )
 
     try:
-        genes_to_process = parse_gene_list_file(args.input_gene_list_file)
+        genes_to_process: List[GeneInput] = parse_gene_list_file(
+            args.input_gene_list_file
+        )
     except Exception:
         log.error(
             f"Failed to parse input gene list file: {args.input_gene_list_file}",
@@ -182,15 +219,15 @@ def main_workflow(args):
     )
 
     all_processed_proteins: List[ProcessedProtein] = []
-    all_stats: List[Dict] = []  # Corrected type hint
+    all_stats: List[Dict[str, Any]] = []
 
     num_workers = min(args.max_workers, len(genes_to_process))
     if num_workers < 1:
-        num_workers = 1  # Ensure at least 1 worker
+        num_workers = 1
     log.info(f"Processing genes using up to {num_workers} concurrent worker(s)...")
 
     with ThreadPoolExecutor(max_workers=num_workers) as executor:
-        future_to_gene_input = {
+        future_to_gene_input: Dict[Any, GeneInput] = {
             executor.submit(
                 process_single_gene_task,
                 gene_input,
@@ -211,13 +248,13 @@ def main_workflow(args):
             gene_input_obj = future_to_gene_input[future]
             try:
                 result = future.result()
-                if result:  # result is (gene_symbol, proteins_list, stats_dict)
+                if result:
                     gene_sym, proteins_list, gene_stats_dict = result
                     if proteins_list:
                         all_processed_proteins.extend(proteins_list)
                     if gene_stats_dict:
                         all_stats.append(gene_stats_dict)
-                else:  # Should not happen if process_single_gene_task always returns a tuple
+                else:
                     log.error(
                         f"No result tuple returned for gene: {gene_input_obj.gene_symbol}"
                     )
@@ -327,7 +364,7 @@ def main_workflow(args):
             successful_genes += 1
             if final_kept_processor == 0:
                 genes_with_no_final_proteins += 1
-        else:  # Should not happen
+        else:
             log.warning(f"  Gene {gs}: Unknown processing status - {status}")
             failed_genes += 1
 
@@ -351,9 +388,6 @@ def main_workflow(args):
 
 
 def cli_entry():
-    """
-    Command Line Interface entry point.
-    """
     parser = argparse.ArgumentParser(
         description="protfetch: Fetch and process protein FASTA/metadata from NCBI.",
         formatter_class=argparse.RawTextHelpFormatter,
@@ -412,7 +446,7 @@ def cli_entry():
     parser.add_argument(
         "--save-individual-files",
         action="store_true",
-        help=f"Save processed FASTA and CSV files for each gene individually in a sub-directory ('{OUTPUT_SUBDIR_INDIVIDUAL}').",
+        help=f"Save processed FASTA and CSV files for each gene individually in a sub-directory ('{OUTPUT_SUBDIR_INDIVIDUAL}'). Also saves intermediate FASTA files (raw NCBI and keyword-filtered).",
     )
     parser.add_argument(
         "--skip-keyword-filter",
@@ -428,7 +462,6 @@ def cli_entry():
 
     args = parser.parse_args()
 
-    # Basic validation
     if args.max_workers < 1:
         parser.error("--max-workers must be at least 1.")
     if args.max_dist < 0:
@@ -438,7 +471,4 @@ def cli_entry():
 
 
 if __name__ == "__main__":
-    # This allows running the main.py script directly for development/testing
-    # e.g. python -m protfetch.main your_gene_list.txt --entrez-email your@email.com
-    # However, the proper way to run after installation is `protfetch ...`
     cli_entry()
