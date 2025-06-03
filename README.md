@@ -6,7 +6,7 @@
 
 # protfetch
 
-**protfetch** is a command-line tool designed to fetch and process protein FASTA sequences and associated metadata from NCBI's Entrez databases. Given a list of gene symbols (or protein names and gene symbols), it retrieves relevant protein sequences, filters them based on various criteria (identity, similarity, fragments), and outputs curated FASTA files and a metadata CSV.
+**protfetch** is a command-line tool designed to fetch and process protein FASTA sequences and associated metadata from NCBI's Entrez databases. It filters sequences based on keywords, identity, similarity (Levenshtein distance), and fragments. Optionally, it can use CD-HIT for advanced, adaptive redundancy reduction. A "solo" mode allows applying CD-HIT filtering to existing FASTA/CSV files.
 
 ## Features
 
