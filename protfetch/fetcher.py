@@ -1,8 +1,7 @@
-import http.client  # For IncompleteRead
-import re  # For splitting by multiple delimiters
+import http.client
 import time
 from io import StringIO
-from typing import Any, Callable, Dict, List, Set, Union  # Added Set
+from typing import Any, Callable, Dict, List, Union
 
 import requests
 from Bio import Entrez, SeqIO
@@ -21,21 +20,32 @@ def configure_entrez(email: str, api_key: Union[str, None] = None):
 
 def _entrez_retry_call(
     entrez_func: Callable[..., Any],
+    parser_func: Union[
+        Callable[[Any], Any], None
+    ] = None,  # Optional parser like Entrez.read
     *args: Any,
     retries: int = 3,
     delay: int = 5,
     **kwargs: Any,
 ) -> Any:
+    last_exception = None
     for attempt in range(retries):
+        handle = None
         try:
             handle = entrez_func(*args, **kwargs)
-            return handle
+            if parser_func:
+                # If a parser is provided, attempt to parse here. Errors will be caught.
+                result = parser_func(handle)
+                return result  # Return parsed result
+            else:
+                return handle
         except (
             requests.exceptions.ConnectionError,
             requests.exceptions.Timeout,
             requests.exceptions.RequestException,
             http.client.IncompleteRead,
         ) as e:
+            last_exception = e
             current_delay = delay
             if (
                 isinstance(e, requests.exceptions.HTTPError)
@@ -58,12 +68,15 @@ def _entrez_retry_call(
 
             if attempt + 1 == retries:
                 log.error(
-                    f"Entrez call failed after {retries} attempts due to network/request issues: {e}"
+                    f"Entrez call failed after {retries} attempts due to network/request issues: {last_exception}"
                 )
-                raise
+                raise last_exception
             time.sleep(current_delay)
         except Exception as e:
-            is_http_error_str = "HTTP Error" in str(e) or "NCBI" in str(e)
+            last_exception = e
+            is_http_error_str = (
+                "HTTP Error" in str(e) or "NCBI" in str(e) or "callMLink" in str(e)
+            )  # Added callMLink
             is_http_error_type = isinstance(e, (IOError, RuntimeError))
 
             if is_http_error_str or is_http_error_type:
@@ -86,22 +99,29 @@ def _entrez_retry_call(
                     current_delay = 60
                 else:
                     log.warning(
-                        f"Entrez call resulted in an NCBI/HTTP error (Attempt {attempt + 1}/{retries}): {e}. Retrying in {current_delay}s..."
+                        f"Entrez call resulted in an NCBI/HTTP error or parse error (Attempt {attempt + 1}/{retries}): {e}. Retrying in {current_delay}s..."
                     )
 
                 if attempt + 1 == retries:
                     log.error(
-                        f"Entrez call failed after {retries} NCBI/HTTP attempts: {e}"
+                        f"Entrez call failed after {retries} NCBI/HTTP or parse attempts: {last_exception}"
                     )
-                    raise
+                    raise last_exception
                 time.sleep(current_delay)
             else:
                 log.error(
-                    f"Unexpected, non-retryable error during Entrez call: {e}",
+                    f"Unexpected, non-retryable error during Entrez call or parsing: {e}",
                     exc_info=True,
                 )
                 raise
-    return None
+        finally:
+            if handle and parser_func and hasattr(handle, "close"):
+                handle.close()
+
+    if last_exception:
+        log.error(f"All Entrez retries failed. Last error: {last_exception}")
+        raise last_exception  # Re-raise the last known exception
+    return None  # Fallback, though should be an exception
 
 
 def fetch_protein_fasta_for_gene(
@@ -118,14 +138,16 @@ def fetch_protein_fasta_for_gene(
         log.debug(f"Gene '{gene_symbol}': [1/3] Searching for Gene UIDs...")
         search_term = f"{gene_symbol}[symbol]"
 
-        handle_search = _entrez_retry_call(
-            Entrez.esearch, db="gene", term=search_term, usehistory="y", retries=retries
+        search_results = _entrez_retry_call(
+            Entrez.esearch,
+            parser_func=Entrez.read,
+            db="gene",
+            term=search_term,
+            usehistory="y",
+            retries=retries,
         )
-        if not handle_search:
+        if not search_results:
             return None
-
-        search_results = Entrez.read(handle_search)
-        handle_search.close()
 
         gene_search_count = int(search_results["Count"])
         gene_search_webenv = search_results.get("WebEnv")
@@ -140,17 +162,17 @@ def fetch_protein_fasta_for_gene(
                 f"Gene '{gene_symbol}': No Gene UIDs found with primary term '{search_term}'. Retrying with '{gene_symbol}[Gene Symbol]'."
             )
             search_term_specific = f"{gene_symbol}[Gene Symbol]"
-            handle_search_specific = _entrez_retry_call(
+            search_results_specific = _entrez_retry_call(
                 Entrez.esearch,
+                parser_func=Entrez.read,
                 db="gene",
                 term=search_term_specific,
                 usehistory="y",
                 retries=retries,
             )
-            if not handle_search_specific:
+            if not search_results_specific:
                 return None
-            search_results_specific = Entrez.read(handle_search_specific)
-            handle_search_specific.close()
+
             gene_search_count = int(search_results_specific["Count"])
             gene_search_webenv = search_results_specific.get("WebEnv")
             gene_search_query_key = search_results_specific.get("QueryKey")
@@ -177,8 +199,9 @@ def fetch_protein_fasta_for_gene(
         )
         time.sleep(0.34)
 
-        handle_elink = _entrez_retry_call(
+        record_elink_list = _entrez_retry_call(
             Entrez.elink,
+            parser_func=Entrez.read,
             dbfrom="gene",
             db="protein",
             WebEnv=gene_search_webenv,
@@ -186,11 +209,8 @@ def fetch_protein_fasta_for_gene(
             retries=retries,
         )
 
-        if not handle_elink:
+        if not record_elink_list:
             return None
-
-        record_elink_list = Entrez.read(handle_elink)
-        handle_elink.close()
 
         protein_ids_all: List[str] = []
         for record_elink_item in record_elink_list:
@@ -283,65 +303,31 @@ def fetch_protein_fasta_for_gene(
         return None
 
 
-def _get_significant_keyword_tokens(keyword: str, min_len: int = 3) -> Set[str]:
-    """Splits keyword by space and hyphen, keeps significant length tokens."""
-    # Replace hyphens with spaces, then split by space
-    tokens = re.split(r"[\s-]+", keyword.lower())
-    # Filter for length and non-empty
-    return {token for token in tokens if token and len(token) >= min_len}
-
-
 def filter_fasta_by_keyword(
     fasta_content_string: str, keyword: str, gene_symbol_for_log: str = ""
 ) -> str:
     if not keyword:
         return fasta_content_string
 
-    lower_keyword_phrase = keyword.lower()
+    lower_keyword = keyword.lower()
     log.debug(
-        f"Filtering FASTA for '{gene_symbol_for_log}' with keyword phrase: '{keyword}'"
+        f"Filtering FASTA content (gene: {gene_symbol_for_log}) by checking if entire keyword phrase '{lower_keyword}' is in header."
     )
 
     filtered_records: List[Any] = []
     num_total_records = 0
-
-    # Tier 2: Prepare significant keyword tokens for flexible matching
-    significant_tokens = _get_significant_keyword_tokens(keyword)
-    # Determine match threshold for token-based matching
-    # If only 1 token, it must match. If >1, require at least 2 or a majority.
-    token_match_threshold = 1 if len(significant_tokens) == 1 else 2
-    # Alternative: token_match_threshold = max(1, int(len(significant_tokens) * 0.6)) # e.g., 60%
-
-    log.debug(
-        f"Gene '{gene_symbol_for_log}': Keyword phrase is '{lower_keyword_phrase}'. Significant tokens for fallback: {significant_tokens} (threshold: {token_match_threshold})"
-    )
 
     try:
         for record in SeqIO.parse(StringIO(fasta_content_string), "fasta"):
             num_total_records += 1
             header_lower = record.description.lower()
 
-            # Tier 1: Exact phrase match
-            if lower_keyword_phrase in header_lower:
+            if lower_keyword in header_lower:
                 filtered_records.append(record)
-                # log.debug(f"Gene '{gene_symbol_for_log}': Kept '{record.id}' due to exact phrase match.")
-                continue  # Record kept, move to next record
-
-            # Tier 2: Flexible token matching (if Tier 1 failed and tokens exist)
-            if significant_tokens:
-                matched_tokens_count = 0
-                for token in significant_tokens:
-                    if token in header_lower:
-                        matched_tokens_count += 1
-
-                if matched_tokens_count >= token_match_threshold:
-                    filtered_records.append(record)
-                    # log.debug(f"Gene '{gene_symbol_for_log}': Kept '{record.id}' due to {matched_tokens_count}/{len(significant_tokens)} token matches (threshold {token_match_threshold}).")
-                    continue
 
         if not filtered_records:
             log.warning(
-                f"Keyword strategy for '{keyword}' did not match any headers for gene '{gene_symbol_for_log}'. "
+                f"Keyword phrase '{keyword}' not found as a substring in any headers for gene '{gene_symbol_for_log}'. "
                 f"Original FASTA had {num_total_records} records."
             )
             return ""
@@ -350,7 +336,7 @@ def filter_fasta_by_keyword(
         SeqIO.write(filtered_records, output_fasta_io, "fasta")
         filtered_fasta_str = output_fasta_io.getvalue()
         log.info(
-            f"Keyword filtering for gene '{gene_symbol_for_log}': {len(filtered_records)}/{num_total_records} records kept using keyword '{keyword}'."
+            f"Keyword filtering for gene '{gene_symbol_for_log}': {len(filtered_records)}/{num_total_records} records kept using keyword phrase '{keyword}'."
         )
         return filtered_fasta_str
 
